@@ -267,7 +267,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void appendOperator(String operator) {
-        if (currentExpression.length() > 0 && !lastIsOperator) {
+        if (currentExpression.length() > 0) {
+            // Untuk operator faktorial, kita bisa menambahkannya langsung setelah angka
+            if (operator.equals("!")) {
+                currentExpression.append(operator);
+                updateDisplay();
+                lastIsOperator = true;
+                return;
+            }
+
+            // Untuk operator lain, pastikan karakter terakhir bukan operator
+            if (!lastIsOperator || operator.equals("-")) { // Minus bisa digunakan sebagai tanda negatif
+                currentExpression.append(operator);
+                updateDisplay();
+                lastIsOperator = true;
+            }
+        } else if (operator.equals("-")) { // Memungkinkan angka negatif
             currentExpression.append(operator);
             updateDisplay();
             lastIsOperator = true;
@@ -377,7 +392,37 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     .replace("÷", "/")
                     .replace("π", String.valueOf(Math.PI));
 
-            // Evaluasi dengan exp4j
+            // Cek dan tangani operasi faktorial
+            if (expression.contains("!")) {
+                return handleFactorial(expression);
+            }
+
+            // Cek dan tangani operasi permutasi
+            else if (expression.contains("P")) {
+                return handlePermutation(expression);
+            }
+
+            // Cek dan tangani operasi kombinasi
+            else if (expression.contains("C")) {
+                return handleCombination(expression);
+            }
+
+            // Cek dan tangani fungsi ln
+            else if (expression.contains("ln(")) {
+                return handleNaturalLog(expression);
+            }
+
+            // Cek dan tangani fungsi akar kuadrat
+            else if (expression.contains("√(")) {
+                return handleSquareRoot(expression);
+            }
+
+            // Cek dan tangani fungsi pembulatan
+            else if (expression.contains("round(")) {
+                return handleRound(expression);
+            }
+
+            // Evaluasi dengan exp4j untuk ekspresi standar
             Expression e = new ExpressionBuilder(expression)
                     .build();
 
@@ -387,6 +432,204 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             return 0;
         }
+    }
+
+    private double handleFactorial(String expression) {
+        // Format: "number!"
+        expression = expression.replace(" ", ""); // Hapus spasi
+
+        // Ekstrak angka sebelum tanda !
+        String numberStr = expression.substring(0, expression.indexOf("!"));
+
+        // Evaluasi angka jika itu adalah ekspresi
+        double number;
+        if (numberStr.contains("+") || numberStr.contains("-") ||
+                numberStr.contains("*") || numberStr.contains("/") ||
+                numberStr.contains("^")) {
+            number = evaluateExpression(numberStr);
+        } else {
+            number = Double.parseDouble(numberStr);
+        }
+
+        // Hitung faktorial
+        return factorial((int)number);
+    }
+
+    private double factorial(int n) {
+        if (n < 0) {
+            throw new IllegalArgumentException("Faktorial tidak didefinisikan untuk angka negatif");
+        }
+        if (n == 0 || n == 1) {
+            return 1;
+        }
+        double result = 1;
+        for (int i = 2; i <= n; i++) {
+            result *= i;
+        }
+        return result;
+    }
+
+    private double handlePermutation(String expression) {
+        // Format: "nPr"
+        expression = expression.replace(" ", ""); // Hapus spasi
+
+        // Pisahkan n dan r
+        String[] parts = expression.split("P");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Format permutasi tidak valid");
+        }
+
+        // Evaluasi n dan r jika mereka adalah ekspresi
+        double n, r;
+        if (parts[0].contains("+") || parts[0].contains("-") ||
+                parts[0].contains("*") || parts[0].contains("/") ||
+                parts[0].contains("^")) {
+            n = evaluateExpression(parts[0]);
+        } else {
+            n = Double.parseDouble(parts[0]);
+        }
+
+        if (parts[1].contains("+") || parts[1].contains("-") ||
+                parts[1].contains("*") || parts[1].contains("/") ||
+                parts[1].contains("^")) {
+            r = evaluateExpression(parts[1]);
+        } else {
+            r = Double.parseDouble(parts[1]);
+        }
+
+        // Hitung permutasi: P(n,r) = n! / (n-r)!
+        return factorial((int)n) / factorial((int)(n - r));
+    }
+
+    private double handleCombination(String expression) {
+        // Format: "nCr"
+        expression = expression.replace(" ", ""); // Hapus spasi
+
+        // Pisahkan n dan r
+        String[] parts = expression.split("C");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Format kombinasi tidak valid");
+        }
+
+        // Evaluasi n dan r jika mereka adalah ekspresi
+        double n, r;
+        if (parts[0].contains("+") || parts[0].contains("-") ||
+                parts[0].contains("*") || parts[0].contains("/") ||
+                parts[0].contains("^")) {
+            n = evaluateExpression(parts[0]);
+        } else {
+            n = Double.parseDouble(parts[0]);
+        }
+
+        if (parts[1].contains("+") || parts[1].contains("-") ||
+                parts[1].contains("*") || parts[1].contains("/") ||
+                parts[1].contains("^")) {
+            r = evaluateExpression(parts[1]);
+        } else {
+            r = Double.parseDouble(parts[1]);
+        }
+
+        // Hitung kombinasi: C(n,r) = n! / (r! * (n-r)!)
+        return factorial((int)n) / (factorial((int)r) * factorial((int)(n - r)));
+    }
+
+    private double handleNaturalLog(String expression) {
+        // Format: "ln(x)"
+        int openIndex = expression.indexOf("ln(") + 3;
+        int closeIndex = findClosingParenthesis(expression, openIndex);
+
+        if (closeIndex == -1) {
+            throw new IllegalArgumentException("Kurung tidak seimbang dalam fungsi ln");
+        }
+
+        // Ekstrak argumen
+        String argument = expression.substring(openIndex, closeIndex);
+
+        // Evaluasi argumen jika itu adalah ekspresi
+        double value;
+        if (argument.contains("+") || argument.contains("-") ||
+                argument.contains("*") || argument.contains("/") ||
+                argument.contains("^")) {
+            value = evaluateExpression(argument);
+        } else {
+            value = Double.parseDouble(argument);
+        }
+
+        // Hitung logaritma natural
+        if (value <= 0) {
+            throw new IllegalArgumentException("Logaritma natural tidak didefinisikan untuk angka non-positif");
+        }
+        return Math.log(value);
+    }
+
+    private double handleSquareRoot(String expression) {
+        // Format: "√(x)"
+        int openIndex = expression.indexOf("√(") + 2;
+        int closeIndex = findClosingParenthesis(expression, openIndex);
+
+        if (closeIndex == -1) {
+            throw new IllegalArgumentException("Kurung tidak seimbang dalam fungsi akar kuadrat");
+        }
+
+        // Ekstrak argumen
+        String argument = expression.substring(openIndex, closeIndex);
+
+        // Evaluasi argumen jika itu adalah ekspresi
+        double value;
+        if (argument.contains("+") || argument.contains("-") ||
+                argument.contains("*") || argument.contains("/") ||
+                argument.contains("^")) {
+            value = evaluateExpression(argument);
+        } else {
+            value = Double.parseDouble(argument);
+        }
+
+        // Hitung akar kuadrat
+        if (value < 0) {
+            throw new IllegalArgumentException("Akar kuadrat tidak didefinisikan untuk angka negatif");
+        }
+        return Math.sqrt(value);
+    }
+
+    private double handleRound(String expression) {
+        // Format: "round(x)"
+        int openIndex = expression.indexOf("round(") + 6;
+        int closeIndex = findClosingParenthesis(expression, openIndex);
+
+        if (closeIndex == -1) {
+            throw new IllegalArgumentException("Kurung tidak seimbang dalam fungsi pembulatan");
+        }
+
+        // Ekstrak argumen
+        String argument = expression.substring(openIndex, closeIndex);
+
+        // Evaluasi argumen jika itu adalah ekspresi
+        double value;
+        if (argument.contains("+") || argument.contains("-") ||
+                argument.contains("*") || argument.contains("/") ||
+                argument.contains("^")) {
+            value = evaluateExpression(argument);
+        } else {
+            value = Double.parseDouble(argument);
+        }
+
+        // Lakukan pembulatan
+        return Math.round(value);
+    }
+
+    private int findClosingParenthesis(String expression, int openIndex) {
+        int count = 1;
+        for (int i = openIndex; i < expression.length(); i++) {
+            if (expression.charAt(i) == '(') {
+                count++;
+            } else if (expression.charAt(i) == ')') {
+                count--;
+                if (count == 0) {
+                    return i;
+                }
+            }
+        }
+        return -1; // Tidak ditemukan kurung tutup yang sesuai
     }
 
     private String formatResult(double result) {
