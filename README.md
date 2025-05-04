@@ -1,6 +1,6 @@
 # RAR Calculator
 
-![Logo Aplikasi](app\src\main\res\drawable\logo_calculator.png)
+![Logo Aplikasi](app/src/main/res/drawable/logo_calculator.png)
 
 ## Deskripsi Aplikasi
 RAR Calculator adalah aplikasi kalkulator saintifik untuk Android yang dirancang untuk melakukan berbagai operasi matematika dari yang sederhana hingga kompleks. Aplikasi ini dikembangkan sebagai project mata kuliah Pemrograman Mobile oleh tim yang terdiri dari 3 anggota.
