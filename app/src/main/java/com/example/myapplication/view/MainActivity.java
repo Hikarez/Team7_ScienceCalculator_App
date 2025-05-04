@@ -1,4 +1,4 @@
-package com.example.myapplication;
+package com.example.myapplication.view;
 
 import android.os.Bundle;
 import android.view.View;
@@ -16,20 +16,20 @@ import net.objecthunter.exp4j.Expression;
 import net.objecthunter.exp4j.ExpressionBuilder;
 import android.util.Log;
 import android.widget.Toast;
-import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.widget.LinearLayout;
 import android.view.ViewGroup;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.LayerDrawable;
-import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
-import android.widget.ImageView;
+
+import com.example.myapplication.R;
+import com.example.myapplication.controller.CalculatorController;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     // Deklarasi komponen UI
+    private CalculatorController controller;
     private TextView tvInput, tvResult;
     private Button b0, b1, b2, b3, b4, b5, b6, b7, b8, b9;
     private Button bSin, bCos, bTan, bLog, bLn, bPhi;
@@ -55,6 +55,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
+        // Inisialisasi controller
+        controller = new CalculatorController();
 
         // Inisialisasi komponen UI
         initializeViews();
@@ -226,9 +229,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         } else if (id == R.id.btan) {
             appendFunction("tan(");
         } else if (id == R.id.blog) {
-            appendFunction("log(");
+            appendFunction("log10(");
         } else if (id == R.id.bln) {
-            appendFunction("ln(");
+            appendFunction("log(");
         } else if (id == R.id.bphi) {
             appendToExpression("π");
         } else if (id == R.id.bnpr) {
@@ -240,7 +243,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         } else if (id == R.id.bab) {
             appendOperator("^");
         } else if (id == R.id.bakar) {
-            appendFunction("√(");
+            appendFunction("sqrt(");
         } else if (id == R.id.bround) {
             appendFunction("round(");
         }
@@ -270,14 +273,30 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (currentExpression.length() > 0) {
             // Untuk operator faktorial, kita bisa menambahkannya langsung setelah angka
             if (operator.equals("!")) {
-                currentExpression.append(operator);
-                updateDisplay();
-                lastIsOperator = true;
+                char lastChar = currentExpression.charAt(currentExpression.length() - 1);
+                // Pastikan karakter terakhir adalah angka atau kurung tutup
+                if (Character.isDigit(lastChar) || lastChar == ')') {
+                    currentExpression.append(operator);
+                    updateDisplay();
+                    lastIsOperator = true;
+                }
+                return;
+            }
+
+            // Untuk operator P dan C, pastikan ada angka sebelumnya
+            if (operator.equals("P") || operator.equals("C")) {
+                char lastChar = currentExpression.charAt(currentExpression.length() - 1);
+                if (Character.isDigit(lastChar) || lastChar == ')') {
+                    currentExpression.append(operator);
+                    updateDisplay();
+                    lastIsOperator = true;
+                }
                 return;
             }
 
             // Untuk operator lain, pastikan karakter terakhir bukan operator
-            if (!lastIsOperator || operator.equals("-")) { // Minus bisa digunakan sebagai tanda negatif
+            char lastChar = currentExpression.charAt(currentExpression.length() - 1);
+            if (!isOperator(lastChar) || operator.equals("-")) { // Minus bisa digunakan sebagai tanda negatif
                 currentExpression.append(operator);
                 updateDisplay();
                 lastIsOperator = true;
@@ -297,13 +316,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void handleParentheses() {
-        if (isInParentheses) {
-            currentExpression.append(")");
-            isInParentheses = false;
-            openParentheses--;
+        // Jika karakter terakhir adalah kurung tutup atau kita sedang tidak dalam kurung
+        // dan ekspression tidak kosong, tambahkan kurung buka
+        if (currentExpression.length() > 0) {
+            char lastChar = currentExpression.charAt(currentExpression.length() - 1);
+            if (lastChar == ')' || openParentheses == 0) {
+                currentExpression.append("(");
+                openParentheses++;
+            } else {
+                // Jika tidak, tambahkan kurung tutup
+                currentExpression.append(")");
+                openParentheses--;
+            }
         } else {
+            // Jika ekspresi kosong, tambahkan kurung buka
             currentExpression.append("(");
-            isInParentheses = true;
             openParentheses++;
         }
         updateDisplay();
@@ -341,8 +368,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
 
             updateDisplay();
-            lastIsOperator = isOperator(currentExpression.length() > 0 ?
-                    currentExpression.charAt(currentExpression.length() - 1) : ' ');
+
+            // Update status operasi terakhir
+            if (currentExpression.length() > 0) {
+                char newLastChar = currentExpression.charAt(currentExpression.length() - 1);
+                lastIsOperator = isOperator(newLastChar);
+            } else {
+                lastIsOperator = false;
+            }
         }
     }
 
@@ -353,25 +386,31 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void calculateResult() {
         if (currentExpression.length() > 0) {
             try {
-                // Tutup kurung yang belum ditutup
-                for (int i = 0; i < openParentheses; i++) {
-                    currentExpression.append(")");
+                // Validasi ekspresi sebelum evaluasi
+                if (lastIsOperator && !currentExpression.toString().endsWith("!")) {
+                    Toast.makeText(this, "Ekspresi tidak boleh diakhiri dengan operator", Toast.LENGTH_SHORT).show();
+                    return;
                 }
 
-                String expression = currentExpression.toString();
+                // Tutup semua kurung yang masih terbuka
+                StringBuilder tempExpression = new StringBuilder(currentExpression);
+                for (int i = 0; i < openParentheses; i++) {
+                    tempExpression.append(")");
+                }
+
+                // Tidak perlu mengganti P dan C di sini, karena akan diganti di controller
+                String expr = tempExpression.toString();
 
                 // Log untuk debugging
-                Log.d("Calculator", "Calculating: " + expression);
+                Log.d("Calculator", "Evaluasi: " + expr);
 
-                // Kalkulasi hasil
-                result = evaluateExpression(expression);
+                // Gunakan controller untuk evaluasi
+                result = controller.evaluateExpression(expr);
 
-                // Tampilkan hasil
+                // Format dan tampilkan hasil
                 tvResult.setText(formatResult(result));
 
-                // Jangan reset input setelah kalkulasi agar pengguna bisa melihat ekspresinya
-                // currentExpression = new StringBuilder(formatResult(result));
-
+                // Reset status kurung
                 lastIsOperator = false;
                 openParentheses = 0;
             } catch (Exception e) {
@@ -382,254 +421,23 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    private double evaluateExpression(String expression) {
-        try {
-            // Log untuk debugging
-            Log.d("Calculator", "Evaluating: " + expression);
-
-            // Ganti simbol dengan ekspresi yang didukung oleh exp4j
-            expression = expression.replace("×", "*")
-                    .replace("÷", "/")
-                    .replace("π", String.valueOf(Math.PI));
-
-            // Cek dan tangani operasi faktorial
-            if (expression.contains("!")) {
-                return handleFactorial(expression);
-            }
-
-            // Cek dan tangani operasi permutasi
-            else if (expression.contains("P")) {
-                return handlePermutation(expression);
-            }
-
-            // Cek dan tangani operasi kombinasi
-            else if (expression.contains("C")) {
-                return handleCombination(expression);
-            }
-
-            // Cek dan tangani fungsi ln
-            else if (expression.contains("ln(")) {
-                return handleNaturalLog(expression);
-            }
-
-            // Cek dan tangani fungsi akar kuadrat
-            else if (expression.contains("√(")) {
-                return handleSquareRoot(expression);
-            }
-
-            // Cek dan tangani fungsi pembulatan
-            else if (expression.contains("round(")) {
-                return handleRound(expression);
-            }
-
-            // Evaluasi dengan exp4j untuk ekspresi standar
-            Expression e = new ExpressionBuilder(expression)
-                    .build();
-
-            return e.evaluate();
-        } catch (Exception e) {
-            Log.e("Calculator", "Error evaluating expression: " + e.getMessage());
-            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            return 0;
-        }
-    }
-
-    private double handleFactorial(String expression) {
-        // Format: "number!"
-        expression = expression.replace(" ", ""); // Hapus spasi
-
-        // Ekstrak angka sebelum tanda !
-        String numberStr = expression.substring(0, expression.indexOf("!"));
-
-        // Evaluasi angka jika itu adalah ekspresi
-        double number;
-        if (numberStr.contains("+") || numberStr.contains("-") ||
-                numberStr.contains("*") || numberStr.contains("/") ||
-                numberStr.contains("^")) {
-            number = evaluateExpression(numberStr);
-        } else {
-            number = Double.parseDouble(numberStr);
-        }
-
-        // Hitung faktorial
-        return factorial((int)number);
-    }
-
-    private double factorial(int n) {
-        if (n < 0) {
-            throw new IllegalArgumentException("Faktorial tidak didefinisikan untuk angka negatif");
-        }
-        if (n == 0 || n == 1) {
-            return 1;
-        }
-        double result = 1;
-        for (int i = 2; i <= n; i++) {
-            result *= i;
-        }
-        return result;
-    }
-
-    private double handlePermutation(String expression) {
-        // Format: "nPr"
-        expression = expression.replace(" ", ""); // Hapus spasi
-
-        // Pisahkan n dan r
-        String[] parts = expression.split("P");
-        if (parts.length != 2) {
-            throw new IllegalArgumentException("Format permutasi tidak valid");
-        }
-
-        // Evaluasi n dan r jika mereka adalah ekspresi
-        double n, r;
-        if (parts[0].contains("+") || parts[0].contains("-") ||
-                parts[0].contains("*") || parts[0].contains("/") ||
-                parts[0].contains("^")) {
-            n = evaluateExpression(parts[0]);
-        } else {
-            n = Double.parseDouble(parts[0]);
-        }
-
-        if (parts[1].contains("+") || parts[1].contains("-") ||
-                parts[1].contains("*") || parts[1].contains("/") ||
-                parts[1].contains("^")) {
-            r = evaluateExpression(parts[1]);
-        } else {
-            r = Double.parseDouble(parts[1]);
-        }
-
-        // Hitung permutasi: P(n,r) = n! / (n-r)!
-        return factorial((int)n) / factorial((int)(n - r));
-    }
-
-    private double handleCombination(String expression) {
-        // Format: "nCr"
-        expression = expression.replace(" ", ""); // Hapus spasi
-
-        // Pisahkan n dan r
-        String[] parts = expression.split("C");
-        if (parts.length != 2) {
-            throw new IllegalArgumentException("Format kombinasi tidak valid");
-        }
-
-        // Evaluasi n dan r jika mereka adalah ekspresi
-        double n, r;
-        if (parts[0].contains("+") || parts[0].contains("-") ||
-                parts[0].contains("*") || parts[0].contains("/") ||
-                parts[0].contains("^")) {
-            n = evaluateExpression(parts[0]);
-        } else {
-            n = Double.parseDouble(parts[0]);
-        }
-
-        if (parts[1].contains("+") || parts[1].contains("-") ||
-                parts[1].contains("*") || parts[1].contains("/") ||
-                parts[1].contains("^")) {
-            r = evaluateExpression(parts[1]);
-        } else {
-            r = Double.parseDouble(parts[1]);
-        }
-
-        // Hitung kombinasi: C(n,r) = n! / (r! * (n-r)!)
-        return factorial((int)n) / (factorial((int)r) * factorial((int)(n - r)));
-    }
-
-    private double handleNaturalLog(String expression) {
-        // Format: "ln(x)"
-        int openIndex = expression.indexOf("ln(") + 3;
-        int closeIndex = findClosingParenthesis(expression, openIndex);
-
-        if (closeIndex == -1) {
-            throw new IllegalArgumentException("Kurung tidak seimbang dalam fungsi ln");
-        }
-
-        // Ekstrak argumen
-        String argument = expression.substring(openIndex, closeIndex);
-
-        // Evaluasi argumen jika itu adalah ekspresi
-        double value;
-        if (argument.contains("+") || argument.contains("-") ||
-                argument.contains("*") || argument.contains("/") ||
-                argument.contains("^")) {
-            value = evaluateExpression(argument);
-        } else {
-            value = Double.parseDouble(argument);
-        }
-
-        // Hitung logaritma natural
-        if (value <= 0) {
-            throw new IllegalArgumentException("Logaritma natural tidak didefinisikan untuk angka non-positif");
-        }
-        return Math.log(value);
-    }
-
-    private double handleSquareRoot(String expression) {
-        // Format: "√(x)"
-        int openIndex = expression.indexOf("√(") + 2;
-        int closeIndex = findClosingParenthesis(expression, openIndex);
-
-        if (closeIndex == -1) {
-            throw new IllegalArgumentException("Kurung tidak seimbang dalam fungsi akar kuadrat");
-        }
-
-        // Ekstrak argumen
-        String argument = expression.substring(openIndex, closeIndex);
-
-        // Evaluasi argumen jika itu adalah ekspresi
-        double value;
-        if (argument.contains("+") || argument.contains("-") ||
-                argument.contains("*") || argument.contains("/") ||
-                argument.contains("^")) {
-            value = evaluateExpression(argument);
-        } else {
-            value = Double.parseDouble(argument);
-        }
-
-        // Hitung akar kuadrat
-        if (value < 0) {
-            throw new IllegalArgumentException("Akar kuadrat tidak didefinisikan untuk angka negatif");
-        }
-        return Math.sqrt(value);
-    }
-
-    private double handleRound(String expression) {
-        // Format: "round(x)"
-        int openIndex = expression.indexOf("round(") + 6;
-        int closeIndex = findClosingParenthesis(expression, openIndex);
-
-        if (closeIndex == -1) {
-            throw new IllegalArgumentException("Kurung tidak seimbang dalam fungsi pembulatan");
-        }
-
-        // Ekstrak argumen
-        String argument = expression.substring(openIndex, closeIndex);
-
-        // Evaluasi argumen jika itu adalah ekspresi
-        double value;
-        if (argument.contains("+") || argument.contains("-") ||
-                argument.contains("*") || argument.contains("/") ||
-                argument.contains("^")) {
-            value = evaluateExpression(argument);
-        } else {
-            value = Double.parseDouble(argument);
-        }
-
-        // Lakukan pembulatan
-        return Math.round(value);
-    }
-
-    private int findClosingParenthesis(String expression, int openIndex) {
-        int count = 1;
-        for (int i = openIndex; i < expression.length(); i++) {
-            if (expression.charAt(i) == '(') {
-                count++;
-            } else if (expression.charAt(i) == ')') {
-                count--;
-                if (count == 0) {
-                    return i;
+    // Metode baru untuk validasi format permutasi dan kombinasi
+    private boolean validatePermutationCombination(String expr) {
+        // Implementasi sederhana: pastikan ada angka di kedua sisi operator P atau C
+        for (int i = 0; i < expr.length(); i++) {
+            char c = expr.charAt(i);
+            if (c == 'P' || c == 'C') {
+                // Pastikan ada angka sebelum operator
+                if (i == 0 || !Character.isDigit(expr.charAt(i-1))) {
+                    return false;
+                }
+                // Pastikan ada angka setelah operator
+                if (i == expr.length() - 1 || !Character.isDigit(expr.charAt(i+1))) {
+                    return false;
                 }
             }
         }
-        return -1; // Tidak ditemukan kurung tutup yang sesuai
+        return true;
     }
 
     private String formatResult(double result) {
@@ -817,4 +625,4 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             e.printStackTrace();
         }
     }
-    }
+}
