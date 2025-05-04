@@ -25,6 +25,9 @@ RAR Calculator merupakan aplikasi kalkulator saintifik komprehensif untuk perang
 ## Link Trello/Jira
 [Link ke board SCRUM](https://rantaw.atlassian.net/jira/software/projects/MAP/boards/1?atlOrigin=eyJpIjoiOWNiNjliNGUzOGU4NGRhMTliMTIwNDhmMzQxZDAwZmIiLCJwIjoiaiJ9)
 
+## Link Figma
+[Link ke Figma](https://www.figma.com/design/sFeg0B1BgjMMjjUWOdROIc/Project-College?node-id=0-1&t=H46n8lzMVXN1Yjyq-1)
+
 ---
 
 # Storyboard
